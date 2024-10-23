@@ -37,15 +37,20 @@ def index_to_position(index: Index, strides: Strides) -> int:
     storage based on strides.
 
     Args:
+    ----
         index : index tuple of ints
         strides : tensor strides
 
     Returns:
+    -------
         Position in storage
 
     """
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
+    # Task 2.1.
+    position = 0
+    for i, j in zip(index, strides):
+        position += i * j
+    return position
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
@@ -55,13 +60,16 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
     may not be the inverse of `index_to_position`.
 
     Args:
+    ----
         ordinal: ordinal position to convert.
         shape : tensor shape.
         out_index : return index corresponding to position.
 
     """
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
+    # Task 2.1.
+    for i in range(len(shape) - 1, -1, -1):
+        out_index[i] = ordinal % shape[i]
+        ordinal //= shape[i]
 
 
 def broadcast_index(
@@ -74,35 +82,77 @@ def broadcast_index(
     removed.
 
     Args:
+    ----
         big_index : multidimensional index of bigger tensor
         big_shape : tensor shape of bigger tensor
         shape : tensor shape of smaller tensor
-        out_index : multidimensional index of smaller tensor
-
-    Returns:
-        None
+        out_index : output index for smaller tensor
 
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    # Task 2.2.
+    # Reverse the indices and shapes to start from the rightmost dimension
+    big_index = big_index[::-1]
+    big_shape = big_shape[::-1]
+    shape = shape[::-1]
+
+    for i in range(len(shape)):
+        # If the current dimension sizes match, use the big_index value
+        if shape[i] == big_shape[i]:
+            out_index[-(i + 1)] = big_index[i]
+        # If the smaller shape has size 1, it's broadcasted, so use 0
+        elif shape[i] == 1:
+            out_index[-(i + 1)] = 0
+        # If sizes don't match and smaller shape isn't 1, it's an error
+        else:
+            raise IndexingError(
+                f"Cannot broadcast shape {shape[::-1]} to {big_shape[::-1]}"
+            )
+
+    # Fill any remaining dimensions in out_index with 0
+    for i in range(len(shape), len(out_index)):
+        out_index[-(i + 1)] = 0
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
     """Broadcast two shapes to create a new union shape.
 
     Args:
+    ----
         shape1 : first shape
         shape2 : second shape
 
     Returns:
+    -------
         broadcasted shape
 
     Raises:
+    ------
         IndexingError : if cannot broadcast
 
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    # Task 2.2.
+    # Reverse the shapes to start from the rightmost dimension
+    s1, s2 = list(reversed(shape1)), list(reversed(shape2))
+    # The result will have at most as many dimensions as the longer shape
+    result = []
+
+    for i in range(max(len(s1), len(s2))):
+        dim1 = s1[i] if i < len(s1) else 1
+        dim2 = s2[i] if i < len(s2) else 1
+
+        if dim1 == dim2:
+            result.append(dim1)
+        elif dim1 == 1:
+            result.append(dim2)
+        elif dim2 == 1:
+            result.append(dim1)
+        else:
+            raise IndexingError(
+                f"Shape {shape1} and {shape2} cannot be broadcast together."
+            )
+
+    # Reverse the result to get the correct order
+    return tuple(reversed(result))
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
@@ -157,7 +207,8 @@ class TensorData:
     def is_contiguous(self) -> bool:
         """Check that the layout is contiguous, i.e. outer dimensions have bigger strides than inner dimensions.
 
-        Returns:
+        Returns
+        -------
             bool : True if contiguous
 
         """
@@ -170,9 +221,11 @@ class TensorData:
 
     @staticmethod
     def shape_broadcast(shape_a: UserShape, shape_b: UserShape) -> UserShape:
+        """Broadcast two shapes to create a new union shape."""
         return shape_broadcast(shape_a, shape_b)
 
     def index(self, index: Union[int, UserIndex]) -> int:
+        """Convert a user index to a storage index."""
         if isinstance(index, int):
             aindex: Index = array([index])
         else:  # if isinstance(index, tuple):
@@ -196,6 +249,7 @@ class TensorData:
         return index_to_position(array(index), self._strides)
 
     def indices(self) -> Iterable[UserIndex]:
+        """Generate all valid indices for the tensor."""
         lshape: Shape = array(self.shape)
         out_index: Index = array(self.shape)
         for i in range(self.size):
@@ -207,10 +261,12 @@ class TensorData:
         return tuple((random.randint(0, s - 1) for s in self.shape))
 
     def get(self, key: UserIndex) -> float:
+        """Get the value at the given index."""
         x: float = self._storage[self.index(key)]
         return x
 
     def set(self, key: UserIndex, val: float) -> None:
+        """Set the value at the given index."""
         self._storage[self.index(key)] = val
 
     def tuple(self) -> Tuple[Storage, Shape, Strides]:
@@ -221,9 +277,11 @@ class TensorData:
         """Permute the dimensions of the tensor.
 
         Args:
+        ----
             *order: a permutation of the dimensions
 
         Returns:
+        -------
             New `TensorData` with the same storage and a new dimension order.
 
         """
@@ -231,8 +289,10 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        # TODO: Implement for Task 2.1.
-        raise NotImplementedError("Need to implement for Task 2.1")
+        # Task 2.1.
+        new_shape = tuple(self.shape[i] for i in order)
+        new_strides = tuple(self.strides[i] for i in order)
+        return TensorData(self._storage, new_shape, new_strides)
 
     def to_string(self) -> str:
         """Convert to string"""
