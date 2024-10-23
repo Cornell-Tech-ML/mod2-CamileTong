@@ -207,6 +207,7 @@ def test_reduce_forward_one_dim_2() -> None:
 
     # here 1 means reduce the 1st dim, 2 -> nothing
     t_summed_2 = t.sum(1)
+    print(t_summed_2)
 
     # shape (3)
     t_sum_2_expected = tensor([[5], [10], [12]])
